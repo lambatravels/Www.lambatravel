@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lamba Travel - PNR & E-Ticket Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @media print {
+            body * { visibility: hidden; }
+            .ticket-print-area, .ticket-print-area * { visibility: visible; }
+            .ticket-print-area { 
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                width: 100%; 
+                border: none !important; 
+                box-shadow: none !important; 
+                margin: 0; 
+                page-break-after: avoid;
+            }
+            .no-print { display: none !important; }
+        }
+        /* Sfondo personalizzato con immagine di viaggio e effetto sfumato */
+        .travel-bg {
+            background-image: linear-gradient(rgba(15, 23, 42, 0.75), rgba(30, 27, 75, 0.85)), url('https://images.unsplash.com/photo-1488646953014-85cb44e25828?q=80&w=1920&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50: '#eff6ff', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8' }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="font-sans text-gray-800 antialiased min-h-screen flex flex-col travel-bg">
+
+    <!-- LOGIN SCREEN -->
+    <div id="loginSection" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl w-full max-w-md p-8 border border-white/20">
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 text-white rounded-full shadow-lg mb-4 text-2xl font-bold">
+                    <i class="fa-solid fa-plane-departure"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-900">Lamba Travel Portal</h1>
+                <p class="text-sm text-gray-500 mt-1">Authorized Agency Access</p>
+            </div>
+            <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-5">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Username</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><i class="fa-solid fa-user"></i></span>
+                        <input type="text" id="username" required class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm outline-none transition" placeholder="Username">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Password</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><i class="fa-solid fa-lock"></i></span>
+                        <input type="password" id="password" required class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm outline-none transition" placeholder="Password">
+                    </div>
+                </div>
+                <div id="loginError" class="hidden text-xs text-red-600 bg-red-50 p-3 rounded-lg text-center font-medium border border-red-100"></div>
+                <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md transition duration-200">
+                    Sign In to Portal
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN WEB APP PORTAL -->
+    <div id="appSection" class="hidden flex-1 flex flex-col">
+        <!-- Header -->
+        <header class="bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-200 sticky top-0 z-30">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-blue-600 text-white rounded-lg flex items-center justify-center font-bold text-lg">
+                        <i class="fa-solid fa-plane"></i>
+                    </div>
+                    <div>
+                        <span class="font-bold text-lg text-gray-900">Lamba Travel</span>
+                        <span class="block text-xs text-gray-500">Brescia • PNR & E-Ticket Portal</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <nav class="hidden md:flex space-x-2">
+                        <button onclick="switchTab('search')" id="navSearchBtn" class="px-3.5 py-2 text-sm font-medium rounded-lg bg-blue-50 text-blue-700 transition">Flight & PNR Search</button>
+                        <button onclick="switchTab('tickets')" id="navTicketsBtn" class="px-3.5 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-100 transition">Issued Tickets (<span id="ticketBadge">0</span>)</button>
+                        <button onclick="switchTab('dashboard')" id="navDashboardBtn" class="px-3.5 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-100 transition">Spreadsheet Database</button>
+                    </nav>
+                    <button onclick="handleLogout()" class="px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition border border-red-200">
+                        <i class="fa-solid fa-right-from-bracket mr-1"></i> Logout
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Mobile Nav -->
+        <div class="md:hidden bg-white/95 backdrop-blur-md border-b border-gray-200 flex justify-around p-2">
+            <button onclick="switchTab('search')" id="mobSearchBtn" class="flex-1 py-2 text-xs font-semibold text-center text-blue-600 bg-blue-50 rounded-lg mx-1">Search</button>
+            <button onclick="switchTab('tickets')" id="mobTicketsBtn" class="flex-1 py-2 text-xs font-semibold text-center text-gray-600 rounded-lg mx-1">Tickets (<span id="mobTicketBadge">0</span>)</button>
+            <button onclick="switchTab('dashboard')" id="mobDashboardBtn" class="flex-1 py-2 text-xs font-semibold text-center text-gray-600 rounded-lg mx-1">Database</button>
+        </div>
+
+        <!-- Content Area -->
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+            <!-- TAB 1: FLIGHT SEARCH -->
+            <div id="searchTab" class="space-y-6">
+                <div class="bg-gradient-to-r from-blue-700/95 to-indigo-800/95 backdrop-blur-md rounded-2xl shadow-xl p-6 sm:p-8 text-white border border-white/10">
+                    <h2 class="text-2xl sm:text-3xl font-bold mb-2">Flight Search & PNR Verification</h2>
+                    <p class="text-blue-100 text-sm max-w-xl mb-6">Select One Way or Round Trip, pick your dates via calendar, and calculate fare prices.</p>
+                    
+                    <form onsubmit="handleSearch(event)" class="bg-white rounded-xl p-4 sm:p-6 shadow-lg text-gray-800 space-y-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Trip Type</label>
+                                <select id="tripType" onchange="toggleReturnField()" class="w-full p-3 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none font-semibold">
+                                    <option value="oneway">One Way</option>
+                                    <option value="round">Round Trip</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Outbound Route (From &rarr; To)</label>
+                                <input type="text" id="outboundRoute" placeholder="e.g. DEL-MXP or MXP-DEL" class="w-full p-3 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none uppercase font-semibold" value="DEL-MXP">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Outbound Date</label>
+                                <input type="date" id="dateSearch" class="w-full p-3 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                            <div id="returnFieldContainer" class="hidden">
+                                <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Return Date</label>
+                                <input type="date" id="returnDateSearch" class="w-full p-3 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end pt-2">
+                            <button type="submit" class="w-full sm:w-auto px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition flex items-center justify-center space-x-2">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <span>Search Flights & Calculate Price</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Search Results Container -->
+                <div id="resultsContainer" class="hidden space-y-4">
+                    <h3 class="text-lg font-bold text-white flex items-center justify-between drop-shadow">
+                        <span class="flex items-center"><i class="fa-solid fa-list-check text-blue-400 mr-2"></i> Matching PNR Routes</span>
+                        <span id="resultsCount" class="text-xs bg-blue-900/80 text-blue-200 px-2.5 py-1 rounded-full font-semibold border border-blue-400/30"></span>
+                    </h3>
+                    <div id="flightResultsList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: ISSUED TICKETS ARCHIVE -->
+            <div id="ticketsTab" class="hidden space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white/95 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-gray-200">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-900">Issued E-Tickets Archive</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">Archive of tickets issued by Lamba Travel (Via Chiusure 10/A, Brescia, Cell: 3246343143).</p>
+                    </div>
+                </div>
+
+                <div id="issuedTicketsList" class="space-y-6">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- TAB 3: SPREADSHEET & PNR MANAGEMENT -->
+            <div id="dashboardTab" class="hidden space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white/95 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-gray-200">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-900">Google Sheet Database (MXP-DEL & DEL-MXP)</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">Full management of registered routes, dates, and PNRs.</p>
+                    </div>
+                    <div class="flex space-x-3">
+                        <input type="text" id="tableFilter" onkeyup="filterTable()" placeholder="Search PNR, date, route..." class="px-3.5 py-2 border border-gray-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                        <button onclick="openAddModal()" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl shadow transition flex items-center space-x-2">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>Add PNR Row</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Spreadsheet Table View -->
+                <div class="bg-white/95 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="overflow-x-auto max-h-[600px]">
+                        <table class="w-full text-left border-collapse sticky-header">
+                            <thead class="bg-gray-100 text-gray-600 text-xs uppercase tracking-wider font-semibold border-b border-gray-200 sticky top-0 bg-gray-100 z-10">
+                                <tr>
+                                    <th class="p-4">Origin</th>
+                                    <th class="p-4">Destination</th>
+                                    <th class="p-4">Travel Date</th>
+                                    <th class="p-4">PNR Code</th>
+                                    <th class="p-4">Flight No</th>
+                                    <th class="p-4">Price (€)</th>
+                                    <th class="p-4">Seats Available</th>
+                                    <th class="p-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="spreadsheetTableBody" class="divide-y divide-gray-200 text-sm">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- BOOKING / TICKET GENERATION MODAL -->
+    <div id="bookingModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 my-8 max-h-[90vh] overflow-y-auto">
+            <h3 class="text-xl font-bold text-gray-900 mb-2">Issue E-Ticket & Assign Passengers</h3>
+            <p class="text-xs text-gray-500 mb-4">Select passenger quantities and fill out details for each ticket.</p>
+            
+            <form onsubmit="confirmIssueTicket(event)" class="space-y-6">
+                <input type="hidden" id="bookOutboundIndex">
+                <input type="hidden" id="bookReturnIndex">
+
+                <!-- PASSENGERS COUNTER WIDGET -->
+                <div class="bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <label class="block text-xs font-bold text-gray-700 uppercase">Passengers Breakdown</label>
+                        <span id="maxSeatsWarning" class="text-xs font-bold text-blue-700"></span>
+                    </div>
+                    
+                    <!-- Adults -->
+                    <div class="flex items-center justify-between bg-white p-3 rounded-xl border border-gray-200">
+                        <div>
+                            <div class="font-bold text-sm text-gray-900">Adults</div>
+                            <div class="text-xs text-gray-500">12+ Years</div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <button type="button" onclick="adjustCount('adults', -1)" class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 font-bold flex items-center justify-center hover:bg-blue-100 transition"><i class="fa-solid fa-minus"></i></button>
+                            <span id="countAdults" class="font-bold text-base w-6 text-center">1</span>
+                            <button type="button" onclick="adjustCount('adults', 1)" class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 font-bold flex items-center justify-center hover:bg-blue-100 transition"><i class="fa-solid fa-plus"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Children -->
+                    <div class="flex items-center justify-between bg-white p-3 rounded-xl border border-gray-200">
+                        <div>
+                            <div class="font-bold text-sm text-gray-900">Children</div>
+                            <div class="text-xs text-gray-500">2-12 Years</div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <button type="button" onclick="adjustCount('children', -1)" class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 font-bold flex items-center justify-center hover:bg-blue-100 transition"><i class="fa-solid fa-minus"></i></button>
+                            <span id="countChildren" class="font-bold text-base w-6 text-center">0</span>
+                            <button type="button" onclick="adjustCount('children', 1)" class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 font-bold flex items-center justify-center hover:bg-blue-100 transition"><i class="fa-solid fa-plus"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Infant -->
+                    <div class="flex items-center justify-between bg-white p-3 rounded-xl border border-gray-200">
+                        <div>
+                            <div class="font-bold text-sm text-gray-900">Infant</div>
+                            <div class="text-xs text-gray-500">Below 2 Years (Lap Infant - No Seat Occupied)</div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <button type="button" onclick="adjustCount('infants', -1)" class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 font-bold flex items-center justify-center hover:bg-blue-100 transition"><i class="fa-solid fa-minus"></i></button>
+                            <span id="countInfants" class="font-bold text-base w-6 text-center">0</span>
+                            <button type="button" onclick="adjustCount('infants', 1)" class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 font-bold flex items-center justify-center hover:bg-blue-100 transition"><i class="fa-solid fa-plus"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DYNAMIC PASSENGER DETAILS CONTAINERS -->
+                <div id="passengersDetailsContainer" class="space-y-4">
+                    <!-- Populated dynamically based on counts -->
+                </div>
+
+                <div class="bg-blue-50 p-4 rounded-xl text-xs space-y-1 text-blue-900">
+                    <div><strong>Itinerary:</strong> <span id="modalFlightSummary"></span></div>
+                    <div><strong>PNR Code(s):</strong> <span id="modalPnrSummary" class="font-mono font-bold"></span></div>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <button type="button" onclick="closeBookingModal()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl text-sm transition">Cancel</button>
+                    <button type="submit" id="submitTicketBtn" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm shadow transition">Generate E-Tickets</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ADD/EDIT PNR MODAL -->
+    <div id="editModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
+            <h3 id="modalTitle" class="text-xl font-bold text-gray-900 mb-4">Add / Edit PNR Record</h3>
+            <form onsubmit="saveFlightRoute(event)" class="space-y-4">
+                <input type="hidden" id="editIndex">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Origin</label>
+                        <input type="text" id="modalOrigin" required class="w-full p-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none uppercase" placeholder="DEL">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Destination</label>
+                        <input type="text" id="modalDestination" required class="w-full p-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none uppercase" placeholder="MXP">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Travel Date</label>
+                        <input type="date" id="modalDate" required class="w-full p-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">PNR Code</label>
+                        <input type="text" id="modalPnr" required class="w-full p-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none uppercase" placeholder="95MP2G">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Flight Number</label>
+                        <input type="text" id="modalFlight" required class="w-full p-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="AI-137">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Price (€)</label>
+                        <input type="text" id="modalPrice" class="w-full p-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="350">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Seats (Total)</label>
+                        <input type="number" id="modalSeats" min="1" max="5" value="5" required class="w-full p-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="5">
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl text-sm transition">Cancel</button>
+                    <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm shadow transition">Save Record</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        let flightDatabase = [
+            { origin: "DEL", destination: "MXP", date: "2026-08-01", pnr: "95MP2G", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-08-02", pnr: "95NBNY", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-08-04", pnr: "95IW67", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-08-06", pnr: "95NB8I", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-08-08", pnr: "95KIA4", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-08-09", pnr: "95LEN7", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-08-11", pnr: "95QYG9", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-08-13", pnr: "95TJ8P", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-08-15", pnr: "95U79Y", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-08-16", pnr: "95TWD7", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-08-18", pnr: "95PU25", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-09-01", pnr: "95V2PU", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-09-03", pnr: "95XXAT", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-09-05", pnr: "95THIZ", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-09-06", pnr: "95VRZ3", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-09-08", pnr: "95YBWE", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-09-10", pnr: "95XN5R", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-09-12", pnr: "95UHTJ", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-09-13", pnr: "95W46Z", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-09-15", pnr: "95XCLA", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-09-17", pnr: "95TCO2", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-09-19", pnr: "95T4SO", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-09-20", pnr: "95T3AL", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-09-22", pnr: "95TOEE", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-09-24", pnr: "95TAPY", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-09-26", pnr: "95VAIU", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-09-27", pnr: "95S6WH", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-09-29", pnr: "95V3WH", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-10-01", pnr: "95SPO8", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-10-03", pnr: "95SXDB", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-10-06", pnr: "95X8V3", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-10-08", pnr: "95XBNV", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-10-10", pnr: "95XBSW", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-10-11", pnr: "95UX77", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-10-13", pnr: "95TLVR", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-10-15", pnr: "95TBZF", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-10-17", pnr: "95UVFO", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-10-18", pnr: "95SWZN", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-10-20", pnr: "95UTUL", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-10-24", pnr: "95YYUW", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-10-25", pnr: "95VSBX", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-10-27", pnr: "95WDJ6", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-10-29", pnr: "95VS4T", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-10-31", pnr: "95X3OJ", flight: "AI-137", price: "", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-11-03", pnr: "95V7A5", flight: "AI-137", price: "310", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-11-05", pnr: "95YSGX", flight: "AI-137", price: "310", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-11-07", pnr: "95VL94", flight: "AI-137", price: "310", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-11-08", pnr: "95UO3D", flight: "AI-137", price: "310", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-11-10", pnr: "95XGBZ", flight: "AI-137", price: "500", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-11-12", pnr: "95WSLP", flight: "AI-137", price: "500", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-11-21", pnr: "95X27I", flight: "AI-137", price: "450", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-11-22", pnr: "95X5GB", flight: "AI-137", price: "450", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-11-24", pnr: "95UNQA", flight: "AI-137", price: "450", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-11-26", pnr: "95YAVU", flight: "AI-137", price: "400", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-11-28", pnr: "95WA5P", flight: "AI-137", price: "400", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-12-01", pnr: "95X6DY", flight: "AI-137", price: "400", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-12-03", pnr: "95YERI", flight: "AI-137", price: "400", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-12-05", pnr: "95XONI", flight: "AI-137", price: "400", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-12-06", pnr: "95YO3P", flight: "AI-137", price: "400", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-12-08", pnr: "95XMZR", flight: "AI-137", price: "400", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-12-10", pnr: "95VKYJ", flight: "AI-137", price: "400", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-12-12", pnr: "95YXNR", flight: "AI-137", price: "400", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-12-13", pnr: "95YPSU", flight: "AI-137", price: "400", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-12-15", pnr: "9624SN", flight: "AI-137", price: "375", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-12-17", pnr: "95XPT7", flight: "AI-137", price: "375", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-12-19", pnr: "95WFBM", flight: "AI-137", price: "375", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-12-20", pnr: "95ZYYU", flight: "AI-137", price: "375", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-12-22", pnr: "95WTAE", flight: "AI-137", price: "375", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-12-24", pnr: "95Y28C", flight: "AI-137", price: "375", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-12-26", pnr: "96293D", flight: "AI-137", price: "375", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-12-27", pnr: "95Z5JK", flight: "AI-137", price: "375", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-12-29", pnr: "95ZKV9", flight: "AI-137", price: "375", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2026-12-31", pnr: "962KW9", flight: "AI-137", price: "375", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-01-02", pnr: "963OE7", flight: "AI-137", price: "500", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-01-03", pnr: "95YNLI", flight: "AI-137", price: "500", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-01-07", pnr: "963EJ6", flight: "AI-137", price: "600", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-01-09", pnr: "963HT9", flight: "AI-137", price: "600", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-01-10", pnr: "962KYM", flight: "AI-137", price: "600", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-01-12", pnr: "9669J7", flight: "AI-137", price: "600", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-01-14", pnr: "962TSX", flight: "AI-137", price: "600", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-01-16", pnr: "9669H3", flight: "AI-137", price: "600", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-01-17", pnr: "963AGP", flight: "AI-137", price: "550", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-01-19", pnr: "965U7Q", flight: "AI-137", price: "550", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-01-21", pnr: "964DLQ", flight: "AI-137", price: "480", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-01-23", pnr: "9655HB", flight: "AI-137", price: "450", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-01-24", pnr: "962NM8", flight: "AI-137", price: "400", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-01-26", pnr: "9686EQ", flight: "AI-137", price: "400", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-01-28", pnr: "967Q8U", flight: "AI-137", price: "400", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-01-30", pnr: "968AYC", flight: "AI-137", price: "375", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-01-31", pnr: "968ETV", flight: "AI-137", price: "400", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-02-02", pnr: "96AJ9K", flight: "AI-137", price: "375", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-02-04", pnr: "968BC3", flight: "AI-137", price: "375", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-02-06", pnr: "969RJR", flight: "AI-137", price: "375", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-02-07", pnr: "967RJQ", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-02-09", pnr: "969J5X", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-02-11", pnr: "96898W", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-02-13", pnr: "96A8OR", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-02-14", pnr: "969LPA", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-02-16", pnr: "969FKU", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-02-18", pnr: "966BCL", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-02-20", pnr: "966EGN", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-02-21", pnr: "9693JK", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-02-23", pnr: "9678RI", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-02-25", pnr: "969X6U", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-02-27", pnr: "968TUM", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-02-28", pnr: "968JNW", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-03-02", pnr: "969CJ6", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-03-04", pnr: "96A3I2", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-03-06", pnr: "96AM7W", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-03-07", pnr: "968HFS", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-03-09", pnr: "969NJX", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-03-11", pnr: "968V35", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-03-13", pnr: "969M2H", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-03-14", pnr: "96AXIA", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-03-16", pnr: "96BRU7", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-03-18", pnr: "967ZO8", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-03-20", pnr: "96A7AE", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-03-21", pnr: "96ANDM", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-03-23", pnr: "96DA8D", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-03-25", pnr: "96DIKU", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-03-27", pnr: "96DSIT", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-03-28", pnr: "96AIL3", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "DEL", destination: "MXP", date: "2027-03-30", pnr: "96DFNF", flight: "AI-137", price: "325", seats: 5, depTime: "13:00", arrTime: "19:25", duration: "10h 55" },
+            { origin: "MXP", destination: "DEL", date: "2026-08-11", pnr: "94T4TC", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-08-13", pnr: "94TOJ6", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-08-15", pnr: "94TMKQ", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-08-16", pnr: "94PDHC", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-08-18", pnr: "94PL6E", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-08-20", pnr: "94Q9UL", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-08-22", pnr: "94RLBC", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-08-23", pnr: "94SLQ2", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-08-25", pnr: "94Q2W4", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-08-27", pnr: "94SGH2", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-08-29", pnr: "94RUAR", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-08-30", pnr: "94PWT5", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-09-01", pnr: "94RGU3", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-09-03", pnr: "94QINS", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-09-05", pnr: "94TXFS", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-09-06", pnr: "952JCF", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-09-08", pnr: "94WZN9", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-09-10", pnr: "94YWNZ", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-09-12", pnr: "952GE4", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-09-13", pnr: "9535F3", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-09-15", pnr: "953H92", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-09-17", pnr: "94YI4U", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-09-19", pnr: "94ZJXA", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-09-20", pnr: "953JYA", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-09-22", pnr: "94ZQRT", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-09-24", pnr: "94ZXA6", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-09-26", pnr: "952SVM", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-09-27", pnr: "94YUKZ", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-09-29", pnr: "95432T", flight: "AI-138", price: "", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-10-01", pnr: "956678", flight: "AI-138", price: "350", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-10-03", pnr: "959DDA", flight: "AI-138", price: "380", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-10-11", pnr: "957COM", flight: "AI-138", price: "380", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-10-13", pnr: "958C5H", flight: "AI-138", price: "380", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-10-15", pnr: "959O9K", flight: "AI-138", price: "400", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-10-17", pnr: "95AP6T", flight: "AI-138", price: "380", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-10-18", pnr: "9576UP", flight: "AI-138", price: "380", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-10-20", pnr: "95BEVB", flight: "AI-138", price: "400", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-10-22", pnr: "95B9NP", flight: "AI-138", price: "500", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-10-24", pnr: "95CGJ7", flight: "AI-138", price: "380", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-10-25", pnr: "95F7XM", flight: "AI-138", price: "380", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-10-27", pnr: "95AREU", flight: "AI-138", price: "400", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-10-29", pnr: "95DQ52", flight: "AI-138", price: "400", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-10-31", pnr: "95BO8N", flight: "AI-138", price: "400", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-11-01", pnr: "95EFVL", flight: "AI-138", price: "400", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-11-12", pnr: "95EU6Y", flight: "AI-138", price: "400", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-11-14", pnr: "95CNTF", flight: "AI-138", price: "400", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-11-17", pnr: "95B65Q", flight: "AI-138", price: "400", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-11-19", pnr: "95EI3S", flight: "AI-138", price: "425", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-11-21", pnr: "95DDFV", flight: "AI-138", price: "425", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-11-22", pnr: "95B7IB", flight: "AI-138", price: "425", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-11-24", pnr: "95AVYI", flight: "AI-138", price: "425", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-11-26", pnr: "95BUMV", flight: "AI-138", price: "425", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-11-28", pnr: "959YBY", flight: "AI-138", price: "425", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-11-29", pnr: "95B9AW", flight: "AI-138", price: "425", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-12-01", pnr: "95CF84", flight: "AI-138", price: "425", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-12-03", pnr: "95BWDJ", flight: "AI-138", price: "450", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-12-05", pnr: "958KWX", flight: "AI-138", price: "450", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-12-06", pnr: "95D2ZQ", flight: "AI-138", price: "450", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-12-08", pnr: "95CF2E", flight: "AI-138", price: "450", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-12-10", pnr: "95BXQQ", flight: "AI-138", price: "450", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-12-12", pnr: "958WDE", flight: "AI-138", price: "420", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-12-13", pnr: "95AT78", flight: "AI-138", price: "480", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-12-15", pnr: "95B9RH", flight: "AI-138", price: "500", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-12-17", pnr: "95AOXY", flight: "AI-138", price: "450", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-12-19", pnr: "95ATXX", flight: "AI-138", price: "600", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-12-20", pnr: "95CTCV", flight: "AI-138", price: "620", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-12-22", pnr: "95A5DV", flight: "AI-138", price: "620", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-12-24", pnr: "95B9P5", flight: "AI-138", price: "600", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-12-27", pnr: "95A822", flight: "AI-138", price: "480", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-12-29", pnr: "95FDY4", flight: "AI-138", price: "400", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2026-12-31", pnr: "95D4K8", flight: "AI-138", price: "385", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-01-02", pnr: "95FBW3", flight: "AI-138", price: "425", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-01-03", pnr: "95FZZS", flight: "AI-138", price: "425", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-01-05", pnr: "95EJ9J", flight: "AI-138", price: "425", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-01-07", pnr: "95F3L5", flight: "AI-138", price: "450", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-01-09", pnr: "95FYST", flight: "AI-138", price: "450", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-01-10", pnr: "95H4CN", flight: "AI-138", price: "450", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-01-12", pnr: "95G8ZY", flight: "AI-138", price: "450", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-01-14", pnr: "95D4O6", flight: "AI-138", price: "400", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-01-16", pnr: "95GPCB", flight: "AI-138", price: "400", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-01-17", pnr: "95GSRC", flight: "AI-138", price: "400", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-01-19", pnr: "95EE4B", flight: "AI-138", price: "400", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-01-21", pnr: "95D5FO", flight: "AI-138", price: "400", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-01-23", pnr: "95ENVP", flight: "AI-138", price: "400", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-01-24", pnr: "95GK3O", flight: "AI-138", price: "400", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-01-26", pnr: "95ERBQ", flight: "AI-138", price: "400", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-01-28", pnr: "95FEBT", flight: "AI-138", price: "400", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-01-30", pnr: "95ENT4", flight: "AI-138", price: "400", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-01-31", pnr: "95HIIU", flight: "AI-138", price: "400", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-02-02", pnr: "95GYRQ", flight: "AI-138", price: "350", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-02-04", pnr: "95G7ZB", flight: "AI-138", price: "350", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-02-06", pnr: "95FNJJ", flight: "AI-138", price: "350", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-02-07", pnr: "95GP8V", flight: "AI-138", price: "350", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-02-09", pnr: "95ELOQ", flight: "AI-138", price: "350", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-02-11", pnr: "95ECD7", flight: "AI-138", price: "350", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-02-13", pnr: "95EQBW", flight: "AI-138", price: "350", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-02-14", pnr: "95EI3K", flight: "AI-138", price: "350", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-02-16", pnr: "95H3DA", flight: "AI-138", price: "350", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-02-18", pnr: "95FVK2", flight: "AI-138", price: "350", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-02-18", pnr: "95LZHD", flight: "AI-138", price: "350", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-02-20", pnr: "95MV76", flight: "AI-138", price: "350", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-02-21", pnr: "95NNQH", flight: "AI-138", price: "350", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-02-23", pnr: "95MXOM", flight: "AI-138", price: "350", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-02-25", pnr: "95NMSA", flight: "AI-138", price: "350", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-02-27", pnr: "95P8EP", flight: "AI-138", price: "350", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-02-28", pnr: "95O7ZN", flight: "AI-138", price: "350", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-03-02", pnr: "95PP88", flight: "AI-138", price: "350", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-03-04", pnr: "95MHKQ", flight: "AI-138", price: "350", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-03-06", pnr: "95NMRJ", flight: "AI-138", price: "290", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-03-07", pnr: "95N26H", flight: "AI-138", price: "290", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-03-09", pnr: "95NPZB", flight: "AI-138", price: "290", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-03-11", pnr: "95MXF6", flight: "AI-138", price: "290", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-03-13", pnr: "95PAWY", flight: "AI-138", price: "290", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-03-14", pnr: "95LQVL", flight: "AI-138", price: "290", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-03-16", pnr: "95MFYF", flight: "AI-138", price: "290", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-03-18", pnr: "95PX4T", flight: "AI-138", price: "290", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-03-20", pnr: "95MMDD", flight: "AI-138", price: "290", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-03-21", pnr: "95PT2Z", flight: "AI-138", price: "290", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-03-23", pnr: "95OBAF", flight: "AI-138", price: "290", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-03-25", pnr: "95QHAB", flight: "AI-138", price: "290", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-03-27", pnr: "95MUYQ", flight: "AI-138", price: "290", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-03-28", pnr: "95PF9P", flight: "AI-138", price: "290", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" },
+            { origin: "MXP", destination: "DEL", date: "2027-03-30", pnr: "95NFAS", flight: "AI-138", price: "290", seats: 5, depTime: "20:55", arrTime: "10:40+1", duration: "9h 15" }
+        ];
+
+        let issuedTickets = [];
+        let passengerCounts = { adults: 1, children: 0, infants: 0 };
+        let currentMaxAvailableSeats = 5;
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const user = document.getElementById('username').value.trim();
+            const pass = document.getElementById('password').value;
+            const errDiv = document.getElementById('loginError');
+
+            if (user.toLowerCase() === 'lambatravel' && pass === 'Lambatravel123@') {
+                document.getElementById('loginSection').style.display = 'none';
+                document.getElementById('appSection').classList.remove('hidden');
+                try {
+                    renderSpreadsheetTable();
+                    updateBadges();
+                } catch(err) {
+                    console.error(err);
+                }
+            } else {
+                errDiv.textContent = 'Username o password errati. Riprova.';
+                errDiv.classList.remove('hidden');
+            }
+        }
+
+        function handleLogout() {
+            document.getElementById('appSection').classList.add('hidden');
+            document.getElementById('loginSection').style.display = 'flex';
+            document.getElementById('loginForm').reset();
+            document.getElementById('loginError').classList.add('hidden');
+        }
+
+        function switchTab(tab) {
+            const searchTab = document.getElementById('searchTab');
+            const ticketsTab = document.getElementById('ticketsTab');
+            const dashboardTab = document.getElementById('dashboardTab');
+            
+            const navSearchBtn = document.getElementById('navSearchBtn');
+            const navTicketsBtn = document.getElementById('navTicketsBtn');
+            const navDashboardBtn = document.getElementById('navDashboardBtn');
+            const mobSearchBtn = document.getElementById('mobSearchBtn');
+            const mobTicketsBtn = document.getElementById('mobTicketsBtn');
+            const mobDashboardBtn = document.getElementById('mobDashboardBtn');
+
+            searchTab.classList.add('hidden');
+            ticketsTab.classList.add('hidden');
+            dashboardTab.classList.add('hidden');
+
+            navSearchBtn.className = "px-3.5 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-100 transition";
+            navTicketsBtn.className = "px-3.5 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-100 transition";
+            navDashboardBtn.className = "px-3.5 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-100 transition";
+            
+            mobSearchBtn.className = "flex-1 py-2 text-xs font-semibold text-center text-gray-600 rounded-lg mx-1";
+            mobTicketsBtn.className = "flex-1 py-2 text-xs font-semibold text-center text-gray-600 rounded-lg mx-1";
+            mobDashboardBtn.className = "flex-1 py-2 text-xs font-semibold text-center text-gray-600 rounded-lg mx-1";
+
+            if (tab === 'search') {
+                searchTab.classList.remove('hidden');
+                navSearchBtn.className = "px-3.5 py-2 text-sm font-medium rounded-lg bg-blue-50 text-blue-700 transition";
+                mobSearchBtn.className = "flex-1 py-2 text-xs font-semibold text-center text-blue-600 bg-blue-50 rounded-lg mx-1";
+            } else if (tab === 'tickets') {
+                ticketsTab.classList.remove('hidden');
+                navTicketsBtn.className = "px-3.5 py-2 text-sm font-medium rounded-lg bg-blue-50 text-blue-700 transition";
+                mobTicketsBtn.className = "flex-1 py-2 text-xs font-semibold text-center text-blue-600 bg-blue-50 rounded-lg mx-1";
+                renderTicketsList();
+            } else if (tab === 'dashboard') {
+                dashboardTab.classList.remove('hidden');
+                navDashboardBtn.className = "px-3.5 py-2 text-sm font-medium rounded-lg bg-blue-50 text-blue-700 transition";
+                mobDashboardBtn.className = "flex-1 py-2 text-xs font-semibold text-center text-blue-600 bg-blue-50 rounded-lg mx-1";
+                renderSpreadsheetTable();
+            }
+        }
+
+        function toggleReturnField() {
+            const tripType = document.getElementById('tripType').value;
+            const returnContainer = document.getElementById('returnFieldContainer');
+            if (tripType === 'round') {
+                returnContainer.classList.remove('hidden');
+            } else {
+                returnContainer.classList.add('hidden');
+            }
+        }
+
+        function parsePrice(val) {
+            if (!val) return 0;
+            let n = parseFloat(val.toString().replace('€', '').trim());
+            return isNaN(n) ? 0 : n;
+        }
+
+        function handleSearch(e) {
+            e.preventDefault();
+            const tripType = document.getElementById('tripType').value;
+            const routeStr = document.getElementById('outboundRoute').value.toUpperCase().trim();
+            const dateQuery = document.getElementById('dateSearch').value.trim();
+            const returnQuery = document.getElementById('returnDateSearch').value.trim();
+            
+            let parts = routeStr.split('-');
+            let outOrigin = parts[0] || 'DEL';
+            let outDest = parts[1] || 'MXP';
+
+            const resultsContainer = document.getElementById('resultsContainer');
+            const listEl = document.getElementById('flightResultsList');
+            const countEl = document.getElementById('resultsCount');
+
+            let outboundMatches = flightDatabase.filter(f => f.origin === outOrigin && f.destination === outDest);
+            if (dateQuery !== '') {
+                outboundMatches = outboundMatches.filter(f => f.date === dateQuery);
+            }
+
+            resultsContainer.classList.remove('hidden');
+            listEl.innerHTML = '';
+
+            if (tripType === 'round') {
+                let returnOrigin = outDest;
+                let returnDest = outOrigin;
+                let returnMatches = flightDatabase.filter(f => f.origin === returnOrigin && f.destination === returnDest);
+                if (returnQuery !== '') {
+                    returnMatches = returnMatches.filter(f => f.date === returnQuery);
+                }
+
+                countEl.textContent = `${outboundMatches.length} Outbound / ${returnMatches.length} Return Found (Round Trip)`;
+
+                if (outboundMatches.length === 0 || returnMatches.length === 0) {
+                    listEl.innerHTML = `<div class="col-span-2 p-6 bg-white rounded-xl shadow-sm text-center text-gray-500">Could not find a complete Outbound and Return combination for the selected calendar dates.</div>`;
+                    return;
+                }
+
+                outboundMatches.forEach(out => {
+                    returnMatches.forEach(ret => {
+                        const outIndex = flightDatabase.findIndex(f => f === out);
+                        const retIndex = flightDatabase.findIndex(f => f === ret);
+                        const pOut = parsePrice(out.price);
+                        const pRet = parsePrice(ret.price);
+                        const totalPrice = pOut + pRet;
+                        const minSeats = Math.min(out.seats, ret.seats);
+
+                        const card = document.createElement('div');
+                        card.className = "bg-white p-5 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between space-y-4 hover:shadow-md transition";
+                        
+                        card.innerHTML = `
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="px-2.5 py-1 bg-indigo-100 text-indigo-800 text-xs font-bold rounded-md">Round Trip Package</span>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="px-2.5 py-1 bg-gray-100 text-gray-800 text-xs font-bold rounded-md">Seats: ${minSeats}/5</span>
+                                        <span class="text-emerald-700 font-bold text-base bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200">${totalPrice > 0 ? 'Total: €' + totalPrice : 'Price on request'}</span>
+                                    </div>
+                                </div>
+                                <div class="bg-gray-50 p-3 rounded-xl space-y-2 text-xs">
+                                    <div class="font-bold text-blue-900 flex justify-between items-center">
+                                        <span><i class="fa-solid fa-plane-departure mr-1"></i>Outbound: ${out.origin} &rarr; ${out.destination} (${out.date}) - PNR: <span class="font-mono">${out.pnr}</span></span>
+                                        <span class="text-gray-600 font-mono">${out.depTime} &rarr; ${out.arrTime} (${out.duration})</span>
+                                    </div>
+                                    <div class="font-bold text-indigo-900 flex justify-between items-center">
+                                        <span><i class="fa-solid fa-plane-arrival mr-1"></i>Return: ${ret.origin} &rarr; ${ret.destination} (${ret.date}) - PNR: <span class="font-mono">${ret.pnr}</span></span>
+                                        <span class="text-gray-600 font-mono">${ret.depTime} &rarr; ${ret.arrTime} (${ret.duration})</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-end border-t border-gray-100 pt-3">
+                                ${minSeats > 0 ? `
+                                <button onclick="openBookingModal(${outIndex}, ${retIndex}, 'round')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow transition flex items-center space-x-1.5">
+                                    <i class="fa-solid fa-ticket"></i>
+                                    <span>Issue Round Trip E-Ticket</span>
+                                </button>
+                                ` : `<span class="text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg border border-red-200">SOLD OUT (0/5 Seats)</span>`}
+                            </div>
+                        `;
+                        listEl.appendChild(card);
+                    });
+                });
+
+            } else {
+                countEl.textContent = `${outboundMatches.length} Options Found (One Way)`;
+                if (outboundMatches.length === 0) {
+                    listEl.innerHTML = `<div class="col-span-2 p-6 bg-white rounded-xl shadow-sm text-center text-gray-500">No PNR found for the selected calendar date.</div>`;
+                    return;
+                }
+
+                outboundMatches.forEach((item) => {
+                    const actualIndex = flightDatabase.findIndex(f => f === item);
+                    const p = parsePrice(item.price);
+                    const card = document.createElement('div');
+                    card.className = "bg-white p-5 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between space-y-4 hover:shadow-md transition";
+                    
+                    card.innerHTML = `
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between">
+                                <span class="px-2.5 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-md">Flight ${item.flight}</span>
+                                <div class="flex items-center space-x-2">
+                                    <span class="px-2.5 py-1 bg-gray-100 text-gray-800 text-xs font-bold rounded-md">Seats: ${item.seats}/5</span>
+                                    ${p > 0 ? `<span class="text-emerald-700 font-bold text-sm">€${p}</span>` : ''}
+                                    <span class="px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-mono font-bold rounded-md">PNR: ${item.pnr}</span>
+                                </div>
+                            </div>
+                            <div class="text-base font-bold text-gray-900">${item.origin} &rarr; ${item.destination}</div>
+                            <div class="flex justify-between items-center text-xs text-gray-600">
+                                <span><i class="fa-solid fa-calendar mr-1.5 text-blue-500"></i>Date: <span class="font-semibold text-gray-800">${item.date}</span></span>
+                                <span class="font-mono bg-gray-100 px-2 py-0.5 rounded text-gray-700 font-bold"><i class="fa-regular fa-clock mr-1"></i>${item.depTime} &rarr; ${item.arrTime} (${item.duration})</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-end border-t border-gray-100 pt-3">
+                            ${item.seats > 0 ? `
+                            <button onclick="openBookingModal(${actualIndex}, null, 'oneway')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow transition flex items-center space-x-1.5">
+                                <i class="fa-solid fa-ticket"></i>
+                                <span>Issue E-Ticket</span>
+                            </button>
+                            ` : `<span class="text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg border border-red-200">SOLD OUT (0/5 Seats)</span>`}
+                        </div>
+                    `;
+                    listEl.appendChild(card);
+                });
+            }
+        }
+
+        function adjustCount(type, delta) {
+            let seatOccupyingTotal = (passengerCounts.adults + passengerCounts.children) + (type === 'adults' || type === 'children' ? delta : 0);
+            
+            if (type === 'adults' && passengerCounts.adults + delta < 1) return;
+            if (seatOccupyingTotal < 1) return;
+            
+            if ((type === 'adults' || type === 'children') && seatOccupyingTotal > currentMaxAvailableSeats) {
+                alert(`Cannot exceed available seats (${currentMaxAvailableSeats} left).`);
+                return;
+            }
+
+            if (type === 'adults') {
+                passengerCounts.adults = Math.max(1, passengerCounts.adults + delta);
+                document.getElementById('countAdults').textContent = passengerCounts.adults;
+            } else if (type === 'children') {
+                passengerCounts.children = Math.max(0, passengerCounts.children + delta);
+                document.getElementById('countChildren').textContent = passengerCounts.children;
+            } else if (type === 'infants') {
+                passengerCounts.infants = Math.max(0, passengerCounts.infants + delta);
+                document.getElementById('countInfants').textContent = passengerCounts.infants;
+            }
+            renderPassengerForms();
+        }
+
+        function renderPassengerForms() {
+            const container = document.getElementById('passengersDetailsContainer');
+            container.innerHTML = '';
+            
+            let pIndex = 1;
+            
+            for (let i = 0; i < passengerCounts.adults; i++) {
+                container.appendChild(createPassengerCard(`Adult ${i+1} (12+ Years)`, pIndex++, 'Adult (12+)'));
+            }
+            for (let i = 0; i < passengerCounts.children; i++) {
+                container.appendChild(createPassengerCard(`Child ${i+1} (2-12 Years)`, pIndex++, 'Child (2–12)'));
+            }
+            for (let i = 0; i < passengerCounts.infants; i++) {
+                container.appendChild(createPassengerCard(`Infant ${i+1} (Below 2 Years - Lap Infant)`, pIndex++, 'Infant (Lap)'));
+            }
+        }
+
+        function createPassengerCard(title, index, typeLabel) {
+            const div = document.createElement('div');
+            div.className = "bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-3";
+            div.innerHTML = `
+                <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+                    <span class="font-bold text-xs text-blue-900 uppercase"><i class="fa-solid fa-user mr-1"></i> Passenger ${index}: ${title}</span>
+                    <span class="px-2 py-0.5 bg-blue-100 text-blue-800 text-[10px] font-bold rounded">${typeLabel}</span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-semibold text-gray-600 uppercase mb-1">First Name</label>
+                        <input type="text" name="firstName_${index}" required class="w-full p-2.5 border border-gray-300 rounded-lg text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500" placeholder="e.g. ROHIT">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-semibold text-gray-600 uppercase mb-1">Last Name</label>
+                        <input type="text" name="lastName_${index}" required class="w-full p-2.5 border border-gray-300 rounded-lg text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500" placeholder="e.g. KUMAR">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-semibold text-gray-600 uppercase mb-1">Date of Birth</label>
+                        <input type="date" name="dob_${index}" required class="w-full p-2.5 border border-gray-300 rounded-lg text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-semibold text-gray-600 uppercase mb-1">Gender</label>
+                        <select name="gender_${index}" required class="w-full p-2.5 border border-gray-300 rounded-lg text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500">
+                            <option value="">Select</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-semibold text-gray-600 uppercase mb-1">Nationality</label>
+                        <input type="text" name="nationality_${index}" required class="w-full p-2.5 border border-gray-300 rounded-lg text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500" placeholder="INDIAN">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-semibold text-gray-600 uppercase mb-1">Passport No</label>
+                        <input type="text" name="passport_${index}" required class="w-full p-2.5 border border-gray-300 rounded-lg text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500" placeholder="P8282580">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-semibold text-gray-600 uppercase mb-1">Passport Expiry</label>
+                        <input type="date" name="passportExpiry_${index}" required class="w-full p-2.5 border border-gray-300 rounded-lg text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-semibold text-gray-600 uppercase mb-1">Phone</label>
+                        <input type="text" name="phone_${index}" class="w-full p-2.5 border border-gray-300 rounded-lg text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500" placeholder="+39 ...">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-gray-200">
+                    <div>
+                        <label class="block text-[10px] font-semibold text-gray-600 uppercase mb-1"><i class="fa-solid fa-utensils mr-1"></i> Meal Preference</label>
+                        <select name="meal_${index}" required class="w-full p-2.5 border border-gray-300 rounded-lg text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500 font-semibold">
+                            <option value="Non-Veg">Non-Vegetarian Meal</option>
+                            <option value="Veg">Vegetarian Meal (Veg)</option>
+                            <option value="Jain Veg">Jain Vegetarian Meal</option>
+                            <option value="Child Meal">Child Meal</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center pt-4">
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="checkbox" name="wheelchair_${index}" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
+                            <span class="text-xs font-bold text-gray-700 uppercase tracking-wide">Wheelchair Assistance</span>
+                        </label>
+                    </div>
+                </div>
+            `;
+            return div;
+        }
+
+        function openBookingModal(outIndex, retIndex, tripType) {
+            document.getElementById('bookOutboundIndex').value = outIndex;
+            document.getElementById('bookReturnIndex').value = retIndex !== null ? retIndex : '';
+            
+            const outbound = flightDatabase[outIndex];
+            let maxSeats = outbound.seats;
+            if (tripType === 'round' && retIndex !== null) {
+                const returnFlight = flightDatabase[retIndex];
+                maxSeats = Math.min(outbound.seats, returnFlight.seats);
+            }
+            currentMaxAvailableSeats = maxSeats;
+            document.getElementById('maxSeatsWarning').textContent = `Max Available Seats (Adults/Children): ${maxSeats}/5`;
+
+            passengerCounts = { adults: 1, children: 0, infants: 0 };
+            document.getElementById('countAdults').textContent = 1;
+            document.getElementById('countChildren').textContent = 0;
+            document.getElementById('countInfants').textContent = 0;
+            
+            renderPassengerForms();
+            
+            let summaryText = `One Way - ${outbound.origin} &rarr; ${outbound.destination} (${outbound.date})`;
+            let pnrText = outbound.pnr;
+
+            if (tripType === 'round' && retIndex !== null) {
+                const returnFlight = flightDatabase[retIndex];
+                summaryText = `Round Trip - Outbound: ${outbound.origin}&rarr;${outbound.destination} (${outbound.date}) | Return: ${returnFlight.origin}&rarr;${returnFlight.destination} (${returnFlight.date})`;
+                pnrText = `Outbound: ${outbound.pnr} | Return: ${returnFlight.pnr}`;
+            }
+
+            document.getElementById('modalFlightSummary').innerHTML = summaryText;
+            document.getElementById('modalPnrSummary').textContent = pnrText;
+            document.getElementById('bookingModal').classList.remove('hidden');
+        }
+
+        function closeBookingModal() {
+            document.getElementById('bookingModal').classList.add('hidden');
+        }
+
+        function confirmIssueTicket(e) {
+            e.preventDefault();
+            const outIndex = document.getElementById('bookOutboundIndex').value;
+            const retIndex = document.getElementById('bookReturnIndex').value;
+            
+            const outbound = flightDatabase[outIndex];
+            const returnFlight = retIndex !== '' ? flightDatabase[retIndex] : null;
+            const tripType = returnFlight ? 'round' : 'oneway';
+
+            let seatOccupyingPassengers = passengerCounts.adults + passengerCounts.children;
+            let totalPassengers = seatOccupyingPassengers + passengerCounts.infants;
+
+            if (outbound.seats < seatOccupyingPassengers || (returnFlight && returnFlight.seats < seatOccupyingPassengers)) {
+                alert("Error: Not enough seats available on one of the flights for adults/children!");
+                return;
+            }
+
+            outbound.seats -= seatOccupyingPassengers;
+            if (returnFlight) {
+                returnFlight.seats -= seatOccupyingPassengers;
+            }
+
+            for (let i = 1; i <= totalPassengers; i++) {
+                const fName = document.querySelector(`[name="firstName_${i}"]`).value.trim().toUpperCase();
+                const lName = document.querySelector(`[name="lastName_${i}"]`).value.trim().toUpperCase();
+                const ticketData = {
+                    id: 'TKT-' + Math.floor(100000 + Math.random() * 900000),
+                    tripType: tripType,
+                    passenger: `${fName} ${lName}`,
+                    dob: document.querySelector(`[name="dob_${i}"]`).value,
+                    gender: document.querySelector(`[name="gender_${i}"]`).value,
+                    passport: document.querySelector(`[name="passport_${i}"]`).value,
+                    passportExpiry: document.querySelector(`[name="passportExpiry_${i}"]`).value,
+                    nationality: document.querySelector(`[name="nationality_${i}"]`).value.toUpperCase(),
+                    phone: document.querySelector(`[name="phone_${i}"]`).value,
+                    meal: document.querySelector(`[name="meal_${i}"]`).value,
+                    wheelchair: document.querySelector(`[name="wheelchair_${i}"]`).checked,
+                    outbound: outbound,
+                    returnFlight: returnFlight,
+                    issuedAt: new Date().toLocaleDateString('en-GB') + ' ' + new Date().toLocaleTimeString('en-GB', {hour: '2-digit', minute:'2-digit'})
+                };
+                issuedTickets.unshift(ticketData);
+            }
+
+            closeBookingModal();
+            updateBadges();
+            renderSpreadsheetTable();
+            switchTab('tickets');
+        }
+
+        function renderTicketsList() {
+            const container = document.getElementById('issuedTicketsList');
+            container.innerHTML = '';
+
+            if (issuedTickets.length === 0) {
+                container.innerHTML = `<div class="p-8 bg-white rounded-2xl shadow-sm text-center text-gray-500">No tickets issued yet. Search for a flight and click "Issue E-Ticket".</div>`;
+                return;
+            }
+
+            issuedTickets.forEach((tkt, idx) => {
+                let returnSection = '';
+                if (tkt.tripType === 'round' && tkt.returnFlight) {
+                    returnSection = `
+                        <div class="border-t border-gray-200 pt-3 mt-3">
+                            <div class="flex justify-between items-center mb-1.5">
+                                <span class="text-xs font-bold text-indigo-700 uppercase"><i class="fa-solid fa-plane-arrival mr-1"></i> Return Flight</span>
+                                <span class="px-2 py-0.5 bg-amber-100 text-amber-800 text-xs font-mono font-bold rounded">PNR: ${tkt.returnFlight.pnr}</span>
+                            </div>
+                            <div class="grid grid-cols-6 p-2.5 bg-gray-50 rounded-lg items-center font-medium text-gray-800 text-xs">
+                                <div class="font-bold">${tkt.returnFlight.origin} &rarr; ${tkt.returnFlight.destination}</div>
+                                <div>${tkt.returnFlight.flight}</div>
+                                <div>${tkt.returnFlight.date}</div>
+                                <div class="font-mono font-semibold">${tkt.returnFlight.depTime} &rarr; ${tkt.returnFlight.arrTime}</div>
+                                <div class="font-mono text-gray-500">(${tkt.returnFlight.duration})</div>
+                                <div><span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded">CONFIRMED</span></div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                let wheelchairBadge = tkt.wheelchair ? `<div class="mt-1.5 inline-flex items-center px-2 py-0.5 bg-purple-100 text-purple-800 text-[11px] font-bold rounded-md"><i class="fa-solid fa-wheelchair mr-1"></i> WHEELCHAIR ASSISTANCE</div>` : '';
+
+                const card = document.createElement('div');
+                card.className = "ticket-print-area bg-white rounded-xl shadow-md border border-gray-300 p-6 space-y-4 max-w-3xl mx-auto";
+                card.innerHTML = `
+                    <div class="border-b-2 border-red-600 pb-3 flex justify-between items-start">
+                        <div>
+                            <h1 class="text-xl font-black tracking-wider text-red-600 uppercase">LAMBA TRAVEL</h1>
+                            <p class="text-[11px] text-gray-600 font-medium">Via Chiusure 10/A, Brescia &bull; Cell: 3246343143</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-[11px] font-bold text-gray-500 uppercase">Issuing Office: WEB PORTAL</div>
+                            <div class="text-[11px] font-mono text-gray-700">Ticket ID: ${tkt.id}</div>
+                            <div class="text-[11px] text-gray-500">Date: ${tkt.issuedAt}</div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between items-center bg-gray-100 py-1 px-3 font-bold text-xs uppercase tracking-wider text-gray-700 border-l-4 border-red-600">
+                        <span>ELECTRONIC TICKET ITINERARY / RECEIPT</span>
+                        <span class="text-blue-700">${tkt.tripType === 'round' ? 'ROUND TRIP' : 'ONE WAY'}</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="block text-[10px] uppercase font-bold text-gray-400">PASSENGER NAME</span>
+                            <span class="font-bold text-gray-900 text-base">${tkt.passenger}</span>
+                            <div class="text-xs text-gray-600 mt-0.5">Passport: ${tkt.passport} (Exp: ${tkt.passportExpiry})</div>
+                            <div class="text-xs text-gray-600">Nationality: ${tkt.nationality} | Gender: ${tkt.gender}</div>
+                            <div class="text-xs text-gray-600">Tel: ${tkt.phone}</div>
+                            <div class="mt-1 text-xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block">
+                                <i class="fa-solid fa-utensils mr-1"></i> Meal: ${tkt.meal}
+                            </div>
+                            <div>${wheelchairBadge}</div>
+                        </div>
+                        <div>
+                            <span class="block text-[10px] uppercase font-bold text-gray-400">OUTBOUND PNR</span>
+                            <span class="font-mono text-xl font-black text-indigo-700">${tkt.outbound.pnr}</span>
+                        </div>
+                    </div>
+
+                    <div class="border border-gray-200 rounded-lg overflow-hidden text-xs">
+                        <div class="bg-gray-50 grid grid-cols-6 p-2 font-bold text-gray-600 border-b border-gray-200">
+                            <div>ROUTE</div>
+                            <div>FLIGHT</div>
+                            <div>DATE</div>
+                            <div>DEPT &rarr; ARR</div>
+                            <div>DURATION</div>
+                            <div>STATUS</div>
+                        </div>
+                        <div class="grid grid-cols-6 p-2.5 items-center font-medium text-gray-800">
+                            <div class="font-bold">${tkt.outbound.origin} &rarr; ${tkt.outbound.destination}</div>
+                            <div>${tkt.outbound.flight}</div>
+                            <div>${tkt.outbound.date}</div>
+                            <div class="font-mono font-semibold">${tkt.outbound.depTime} &rarr; ${tkt.outbound.arrTime}</div>
+                            <div class="font-mono text-gray-500">(${tkt.outbound.duration})</div>
+                            <div><span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded">CONFIRMED</span></div>
+                        </div>
+                    </div>
+
+                    ${returnSection}
+
+                    <!-- SEZIONE AGGIUNTIVA MODIFICATA CON BORDO E DETTAGLI AZZURRI -->
+                    <div class="pt-2 space-y-2 text-[11px] text-gray-700 border-t border-gray-200">
+                        <div class="text-center font-bold text-gray-900 pb-1">
+                            We wish you a pleasant journey <i class="fa-solid fa-plane text-blue-600 ml-1"></i>
+                        </div>
+
+                        <div>
+                            <strong class="text-gray-900 uppercase">Important Notes</strong>
+                            <ul class="list-disc pl-4 space-y-0.5 text-gray-600">
+                                <li>ATTENTION : REMEMBER TO CHECK FLIGHT TIMINGS TWO DAYS BEFORE DEPARTURE , ANYTIME TICKET IS NON REFUNDABLE AND NON CHANGEABLE .GROUP BOOKINGS NON REFUNDABLE/NON CHANGEABLE</li>
+                            </ul>
+                        </div>
+
+                        <!-- Box Azzurro Air Suvidha -->
+                        <div class="border border-blue-300 bg-blue-50/50 p-2.5 rounded-lg flex justify-between items-center">
+                            <div class="space-y-1">
+                                <div class="font-bold text-blue-900 uppercase text-[10px]">
+                                    <i class="fa-solid fa-circle text-[6px] align-middle mr-1 text-blue-700"></i> MANDATORY TRAVEL ADVISORY: AIR SUVIDHA
+                                </div>
+                                <p class="text-gray-600 text-[10px]">Filling for Air Suvidha is mandatory for passengers traveling to India. You can fill the same at: <a href="https://airsuvidha.civilaviation.gov.in/" target="_blank" class="text-blue-600 underline font-semibold">https://airsuvidha.civilaviation.gov.in/</a></p>
+                                
+                                <div class="font-bold text-blue-900 uppercase text-[10px] pt-1">
+                                    <i class="fa-solid fa-circle text-[6px] align-middle mr-1 text-blue-700"></i> E ARRIVAL CARD FORM
+                                </div>
+                                <p class="text-gray-600 text-[10px]">For Non Indian passport holders - E ARRIVAL CARD FORM to be filled. You can fill the same at: <a href="https://indianvisaonline.gov.in/earrival/" target="_blank" class="text-blue-600 underline font-semibold">https://indianvisaonline.gov.in/earrival/</a></p>
+                            </div>
+                            <div class="text-right pl-3 shrink-0">
+                                <div class="text-[9px] font-bold text-blue-900">Air Suvidha Video QR</div>
+                                <div class="text-[9px] font-bold text-blue-900 mt-2">E ARRIVAL CARD QR</div>
+                                <div class="text-[9px] font-extrabold text-blue-800 mt-1">Scan To Fill</div>
+                            </div>
+                        </div>
+
+                        <!-- Box Grigio Additional Travel Advisory -->
+                        <div class="border border-gray-200 bg-gray-50 p-2.5 rounded-lg space-y-1">
+                            <div class="font-bold text-blue-900 uppercase text-[10px]">Additional Travel Advisory</div>
+                            <ul class="list-disc pl-4 space-y-0.5 text-gray-600 text-[10px]">
+                                <li>Except for medical devices, electronic devices larger than a cell phone/smart phone cannot be carried in the cabin of the aircraft.</li>
+                                <li>Only cell phones of dimensions Length: 16cm x Width: 9.3cm x Depth: 1.5cm are allowed in cabin baggage. Please carry all other electronic equipment inside check-in baggage.</li>
+                                <li>Please reach the airport 3 hours before the departure time.</li>
+                                <li>Check-in counters at the airport close 60 minutes before departure.</li>
+                                <li>Your carry-on baggage shouldn't weigh more than 7kgs.</li>
+                                <li>Carry photo identification, you will need it as proof of identity while checking-in.</li>
+                                <li>Use the airline PNR for all correspondence directly with the airline.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="no-print flex justify-end space-x-3 pt-3 border-t border-gray-100">
+                        <button onclick="window.print()" class="px-4 py-2 bg-gray-800 hover:bg-black text-white font-semibold text-xs rounded-lg transition flex items-center space-x-1.5">
+                            <i class="fa-solid fa-print"></i>
+                            <span>Print E-Ticket</span>
+                        </button>
+                        <button onclick="deleteTicket(${idx})" class="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 font-semibold text-xs rounded-lg transition flex items-center space-x-1.5">
+                            <i class="fa-solid fa-trash"></i>
+                            <span>Remove</span>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function deleteTicket(idx) {
+            if (confirm('Are you sure you want to remove this ticket?')) {
+                const tkt = issuedTickets[idx];
+                
+                if (tkt.outbound) {
+                    const foundOut = flightDatabase.find(f => f.pnr === tkt.outbound.pnr);
+                    if (foundOut && foundOut.seats < 5) {
+                        foundOut.seats += 1;
+                    }
+                }
+                
+                if (tkt.returnFlight) {
+                    const foundRet = flightDatabase.find(f => f.pnr === tkt.returnFlight.pnr);
+                    if (foundRet && foundRet.seats < 5) {
+                        foundRet.seats += 1;
+                    }
+                }
+
+                issuedTickets.splice(idx, 1);
+                updateBadges();
+                renderSpreadsheetTable();
+                renderTicketsList();
+            }
+        }
+
+        function updateBadges() {
+            document.getElementById('ticketBadge').textContent = issuedTickets.length;
+            document.getElementById('mobTicketBadge').textContent = issuedTickets.length;
+        }
+
+        function renderSpreadsheetTable() {
+            const tbody = document.getElementById('spreadsheetTableBody');
+            tbody.innerHTML = '';
+
+            flightDatabase.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50 transition";
+                tr.innerHTML = `
+                    <td class="p-4 font-semibold text-gray-900">${item.origin}</td>
+                    <td class="p-4 font-semibold text-gray-900">${item.destination}</td>
+                    <td class="p-4 text-xs font-medium text-gray-700">${item.date} (${item.depTime})</td>
+                    <td class="p-4 font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded w-max">${item.pnr}</td>
+                    <td class="p-4 text-xs font-semibold text-gray-600">${item.flight}</td>
+                    <td class="p-4 text-xs font-bold text-emerald-600">${item.price ? '€' + item.price : '-'}</td>
+                    <td class="p-4 text-xs font-bold ${item.seats > 0 ? 'text-blue-600' : 'text-red-600'}">${item.seats}/5</td>
+                    <td class="p-4 text-right space-x-2">
+                        <button onclick="openEditModal(${index})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteRoute(${index})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterTable() {
+            const val = document.getElementById('tableFilter').value.toLowerCase();
+            const rows = document.querySelectorAll('#spreadsheetTableBody tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(val) ? '' : 'none';
+            });
+        }
+
+        function openAddModal() {
+            document.getElementById('modalTitle').textContent = 'Add New PNR Record';
+            document.getElementById('editIndex').value = '';
+            document.getElementById('modalOrigin').value = '';
+            document.getElementById('modalDestination').value = '';
+            document.getElementById('modalDate').value = '';
+            document.getElementById('modalPnr').value = '';
+            document.getElementById('modalFlight').value = 'AI-137';
+            document.getElementById('modalPrice').value = '';
+            document.getElementById('modalSeats').value = '5';
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+
+        function openEditModal(index) {
+            const item = flightDatabase[index];
+            document.getElementById('modalTitle').textContent = 'Edit PNR Record';
+            document.getElementById('editIndex').value = index;
+            document.getElementById('modalOrigin').value = item.origin;
+            document.getElementById('modalDestination').value = item.destination;
+            document.getElementById('modalDate').value = item.date;
+            document.getElementById('modalPnr').value = item.pnr;
+            document.getElementById('modalFlight').value = item.flight;
+            document.getElementById('modalPrice').value = item.price || '';
+            document.getElementById('modalSeats').value = item.seats !== undefined ? item.seats : 5;
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('editModal').classList.add('hidden');
+        }
+
+        function saveFlightRoute(e) {
+            e.preventDefault();
+            const index = document.getElementById('editIndex').value;
+            const newData = {
+                origin: document.getElementById('modalOrigin').value.toUpperCase(),
+                destination: document.getElementById('modalDestination').value.toUpperCase(),
+                date: document.getElementById('modalDate').value,
+                pnr: document.getElementById('modalPnr').value.toUpperCase(),
+                flight: document.getElementById('modalFlight').value,
+                price: document.getElementById('modalPrice').value,
+                seats: parseInt(document.getElementById('modalSeats').value) || 5,
+                depTime: "13:00",
+                arrTime: "19:25",
+                duration: "10h 55"
+            };
+
+            if (index === '') {
+                flightDatabase.unshift(newData);
+            } else {
+                flightDatabase[index] = newData;
+            }
+
+            closeModal();
+            renderSpreadsheetTable();
+        }
+
+        function deleteRoute(index) {
+            if (confirm('Are you sure you want to delete this PNR record?')) {
+                flightDatabase.splice(index, 1);
+                renderSpreadsheetTable();
+            }
+        }
+    </script>
+</body>
+</html>
+
